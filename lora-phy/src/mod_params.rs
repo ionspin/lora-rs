@@ -81,7 +81,7 @@ pub struct ModulationParams {
     pub(crate) spreading_factor: SpreadingFactor,
     pub(crate) bandwidth: Bandwidth,
     pub(crate) coding_rate: CodingRate,
-    pub(crate) low_data_rate_optimize: u8,
+    pub low_data_rate_optimize: u8,
     pub(crate) frequency_in_hz: u32,
 }
 
