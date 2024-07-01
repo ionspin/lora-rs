@@ -488,7 +488,7 @@ impl<T: AsRef<[u8]>, F: CryptoFactory> DecryptedJoinAcceptPayload<T, F> {
     ) -> AES128 {
         let cipher = self.1.new_enc(key);
 
-        // note: AppNonce is 24 bit, NetId is 24 bit, DevNonce is 16 bit
+        // note: AppNonce is 24 bits, NetId is 24 bits, DevNonce is 16 bits
         let app_nonce = self.app_nonce();
         let nwk_addr = self.net_id();
         let (app_nonce_arr, nwk_addr_arr, dev_nonce_arr) =
@@ -882,8 +882,15 @@ where
     F: CryptoFactory,
 {
     let bytes = data.as_ref();
-    check_phy_data(bytes)?;
-    match MHDR(bytes[0]).mtype() {
+    // Enough data for payload (bare minimum without fport and FRMPayload)?
+    if bytes.len() < PHY_PAYLOAD_MIN_LEN {
+        return Err(Error::InvalidPayload);
+    }
+    let mhdr = MHDR(bytes[0]);
+    if mhdr.major() != Major::LoRaWANR1 {
+        return Err(Error::UnsupportedMajorVersion);
+    }
+    match mhdr.mtype() {
         MType::JoinRequest => {
             Ok(PhyPayload::JoinRequest(JoinRequestPayload::new_with_factory(data, factory)?))
         }
@@ -900,24 +907,6 @@ where
     }
 }
 
-fn check_phy_data(bytes: &[u8]) -> Result<(), Error> {
-    let len = bytes.len();
-    if len == 0 {
-        return Err(Error::InvalidPayload);
-    }
-    let mhdr = MHDR(bytes[0]);
-    if mhdr.major() != Major::LoRaWANR1 {
-        return Err(Error::UnsupportedMajorVersion);
-    }
-    // the smallest payload is a data payload without fport and FRMPayload
-    // which is 12 bytes long.
-    if len < PHY_PAYLOAD_MIN_LEN {
-        Err(Error::InvalidPayload)
-    } else {
-        Ok(())
-    }
-}
-
 /// MHDR represents LoRaWAN MHDR.
 #[derive(Debug, PartialEq, Eq)]
 pub struct MHDR(u8);
@@ -927,7 +916,7 @@ impl MHDR {
         MHDR(byte)
     }
 
-    /// Gives the type of message that PhyPayload is carrying.
+    /// Type of message PhyPayload is carrying.
     pub fn mtype(&self) -> MType {
         match self.0 >> 5 {
             0 => MType::JoinRequest,
@@ -941,7 +930,7 @@ impl MHDR {
         }
     }
 
-    /// Gives the version of LoRaWAN payload format.
+    /// Version of LoRaWAN payload format.
     pub fn major(&self) -> Major {
         if self.0.trailing_zeros() >= 2 {
             Major::LoRaWANR1
@@ -978,12 +967,12 @@ pub enum Major {
 }
 
 fixed_len_struct! {
-    /// EUI64 represents a 64 bit EUI.
+    /// EUI64 represents a 64-bit EUI.
     struct EUI64[8];
 }
 
 fixed_len_struct! {
-    /// DevNonce represents a 16 bit device nonce.
+    /// DevNonce represents a 16-bit device nonce.
     struct DevNonce[2];
 }
 
@@ -1000,12 +989,12 @@ impl From<u16> for DevNonce<[u8; 2]> {
 }
 
 fixed_len_struct! {
-    /// AppNonce represents a 24 bit network server nonce.
+    /// AppNonce represents a 24-bit network server nonce.
     struct AppNonce[3];
 }
 
 fixed_len_struct! {
-    /// DevAddr represents a 32 bit device address.
+    /// DevAddr represents a 32-bit device address.
     struct DevAddr[4];
 }
 
@@ -1032,7 +1021,7 @@ impl From<u32> for DevAddr<[u8; 4]> {
 }
 
 fixed_len_struct! {
-    /// NwkAddr represents a 24 bit network address.
+    /// NwkAddr represents a 24-bit network address.
     struct NwkAddr[3];
 }
 
