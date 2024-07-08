@@ -734,12 +734,12 @@ where
         if OpStatusErrorMask::is_error(read_status) {
             return Err(RadioError::OpError(read_status));
         }
-        // check this ???
-        let rssi = ((-(pkt_status[0] as i32)) >> 1) as i16;
-        let snr = (((pkt_status[1] as i8) + 2) >> 2) as i16;
-        let _signal_rssi = ((-(pkt_status[2] as i32)) >> 1) as i16; // unused currently
 
-        Ok(PacketStatus { rssi, snr })
+        let rssi = ((-(pkt_status[0] as i16)) >> 1);
+        let snr = ((pkt_status[1] as i16) >> 2);
+        let signal_rssi = ((-(pkt_status[2] as i16)) >> 1);
+
+        Ok(PacketStatus { rssi, snr, signal_rssi })
     }
 
     async fn get_rssi(&mut self) -> Result<i16, RadioError> {

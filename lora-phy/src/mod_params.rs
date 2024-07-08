@@ -35,6 +35,7 @@ pub enum RadioError {
 pub struct PacketStatus {
     pub rssi: i16,
     pub snr: i16,
+    pub signal_rssi: i16,
 }
 
 /// The state of the radio
