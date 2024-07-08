@@ -372,24 +372,38 @@ where
     }
 
     async fn get_rx_packet_status(&mut self) -> Result<PacketStatus, RadioError> {
+        let packet_snr = self.read_register(Register::RegPktSnrValue).await?;
+        let packet_rssi = self.read_register(Register::RegPktRssiValue).await?;
+        let rssi_offset = C::rssi_offset(self).await?;
+
         let snr = {
-            let packet_snr = self.read_register(Register::RegPktSnrValue).await?;
-            packet_snr as i8 as i16 / 4
+            packet_snr as i16 / 4
         };
 
         let rssi = {
-            let packet_rssi = self.read_register(Register::RegPktRssiValue).await?;
+            // SX 1272/73 datasheet 5.5.5. RSSI and SNR in LoRaTM Mode
+            // The following formula shows the method used to interpret the LoRaTM RSSI values:
+            // RSSI (dBm) = -139 + Rssi
+            rssi_offset + packet_rssi as i16
 
-            let rssi_offset = C::rssi_offset(self).await?;
+        };
+
+        let signal_rssi = {
+            // SX 1272/73 datasheet 5.5.5. RSSI and SNR in LoRaTM Mode
 
             if snr >= 0 {
-                rssi_offset + (packet_rssi as f32 * 16.0 / 15.0) as i16
+                // The same formula can be re-used to evaluate the signal strength of the received packet:
+                // Packet Strength (dBm) = -139 + PacketRssi * 0.25, (with LnaBoost On and SNR >= 0)
+                rssi_offset + (packet_rssi as f32 * 0.25) as i16
             } else {
-                rssi_offset + (packet_rssi as i16) + snr
+                // Due to the nature of the LoRa modulation, it is possible to receive packets below the noise floor. In this situation, the SNR
+                // is used in conjunction of the PacketRssi to compute the signal strength of the received packet:
+                // Packet Strength (dBm) = -139 + PacketRssi + PacketSnr * 0.25, (with LnaBoost On and SNR < 0)
+                rssi_offset + ((packet_rssi as f32 + snr as f32) * 0.25) as i16
             }
         };
 
-        Ok(PacketStatus { rssi, snr })
+        Ok(PacketStatus { rssi, snr, signal_rssi })
     }
 
     async fn get_rssi(&mut self) -> Result<i16, RadioError> {
