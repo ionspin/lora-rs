@@ -735,9 +735,9 @@ where
             return Err(RadioError::OpError(read_status));
         }
 
-        let rssi = ((-(pkt_status[0] as i16)) >> 1);
-        let snr = ((pkt_status[1] as i16) >> 2);
-        let signal_rssi = ((-(pkt_status[2] as i16)) >> 1);
+        let rssi = (-(pkt_status[0] as i16)) >> 1;
+        let snr = (pkt_status[1] as i16) >> 2;
+        let signal_rssi = (-(pkt_status[2] as i16)) >> 1;
 
         Ok(PacketStatus { rssi, snr, signal_rssi })
     }
